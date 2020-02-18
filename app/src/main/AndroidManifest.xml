@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.dji.ImportSDKDemo">
+    package="com.dji.ImportSDKDemo"
+    android:sharedUserId="com.cas.pals"
+    android:sharedUserLabel="@string/shared_name">
 
     <!-- Permissions and features -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
@@ -39,6 +41,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
 
         <!-- DJI SDK -->
         <uses-library android:name="com.android.future.usb.accessory" />

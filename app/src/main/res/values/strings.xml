@@ -1,3 +1,4 @@
 <resources>
+    <string name="shared_name">casfreinds</string>
     <string name="app_name">ImportSDKDemo</string>
 </resources>

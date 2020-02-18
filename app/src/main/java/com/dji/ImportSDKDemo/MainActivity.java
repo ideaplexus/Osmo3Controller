@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,19 +17,23 @@ import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
-//MAY BE WRONG HANDLER
-//import com.lmax.disruptor.EventPoller;
 import android.os.Handler;
-
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
+import dji.common.gimbal.Rotation;
+import dji.common.gimbal.RotationMode;
+import dji.common.util.CommonCallbacks;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
+import dji.sdk.gimbal.HandheldGimbal;
+import dji.sdk.products.HandHeld;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.thirdparty.afinal.core.AsyncTask;
@@ -74,6 +79,9 @@ public class MainActivity extends AppCompatActivity {
 
         //Initialize DJI SDK Manager
         mHandler = new Handler(Looper.getMainLooper());
+
+
+
     }
 
     /**
@@ -124,9 +132,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void startSDKRegistration() {
         if (isRegistrationInProgress.compareAndSet(false, true)) {
-           // AsyncTask.execute(new Runnable() {
-          //      @Override
-              //  public void run() {
+            AsyncTask.execute(new Runnable() {
+               @Override
+                public void run() {
                     showToast("registering, pls wait...");
                     DJISDKManager myManager = DJISDKManager.getInstance();
                     Context myContext = MainActivity.this.getApplicationContext();
@@ -135,7 +143,18 @@ public class MainActivity extends AppCompatActivity {
                 public void onRegister(DJIError djiError) {
                     if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
                         showToast("Register Success");
-                        DJISDKManager.getInstance().startConnectionToProduct();
+
+
+                        Timer timer = new Timer();
+//Set the schedule function
+                        timer.scheduleAtFixedRate(new TimerTask() {
+                                                      @Override
+                                                      public void run() {
+                                                          showToast("OOOOOO");
+                                                          ReadFileAndUpdateOsmo();
+                                                      }},0, 1000);
+
+                        // DJISDKManager.getInstance().startConnectionToProduct();
                     } else {
                         showToast("Register sdk fails, please check the bundle id and network connection!");
                     }
@@ -189,8 +208,8 @@ public class MainActivity extends AppCompatActivity {
                   myManager.registerApp(myContext, myCaller);
 
                 }
-          //  });
-     //   }
+           });
+        }
     }
 
     private void notifyStatusChange() {
@@ -217,5 +236,74 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
+    private boolean _connecting = false;
+    private void ConnectToOsmo3(){
+        if(_connecting) return;
+        _connecting = true;
+        if (DJISDKManager.getInstance().getBluetoothProductConnector() == null) {
+            ToastUtils.setResultToToast("pls wait the sdk initiation finished");
+            _connecting = false;
+            return;
+        }
+        if(ConnectionManager.getInstance().ConnectedToOsmo()) {
+            _connecting = false;
+
+            return;
+        }
+        ConnectionManager.getInstance().FindAndConnectOsmo3();
+        _connecting = false;
+    }
+
+    private void ReadFileAndUpdateOsmo(){
+
+        if(!ConnectionManager.getInstance().ConnectedToOsmo()){
+            ConnectToOsmo3();
+            return;
+        }
+        int yaw =0;
+        int pitch = 0;
+
+        try {
+            Context  con = createPackageContext("com.vuforia.engine.Pose1", 0);//first app package name is "com.sharedpref1"
+            SharedPreferences pref = con.getSharedPreferences("demopref", Context.MODE_PRIVATE);
+            String yawString = pref.getString("yaw", "0");
+            String pitchString = pref.getString("pitch", "0");
+            yaw = Integer.parseInt(yawString);
+            pitch = Integer.parseInt(pitchString);
+        }
+        catch (PackageManager.NameNotFoundException e) {
+            Log.e("Not data shared", e.toString());
+            return;
+        }
+
+        if(Math.abs(pitch) > 180){
+            if(pitch > 0) pitch = 360 - pitch;
+            else pitch = pitch + 360;
+        }
+        if(Math.abs(yaw) > 180){
+            if(yaw > 0) yaw = 360 - yaw;
+            else yaw = yaw + 360;
+        }
+
+        HandHeld t = (HandHeld) DJISDKManager.getInstance().getProduct();
+        HandheldGimbal j = (HandheldGimbal) t.getGimbal();
+        j.rotate(new Rotation.Builder()
+                        .mode(RotationMode.RELATIVE_ANGLE)
+                        .pitch(pitch)
+                        .yaw(yaw)
+                        .build()
+                ,new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onResult(DJIError error) {
+                        if(error != null)  ToastUtils.showToast(error.toString());
+                    }
+                });
+
+    }
+
+
+
+
 }
 
